@@ -1,0 +1,48 @@
+name: Archive Global IR GIF
+
+on:
+  schedule:
+    - cron: "0 */3 * * *"   # every 3 hours (UTC / Z time)
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout your repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # Step 2: Make sure frames folder exists
+      - name: Ensure frames folder exists
+        run: mkdir -p frames
+
+      # Step 3: Determine next frame number
+      - name: Get next frame number
+        id: counter
+        run: |
+          if ls frames/*.gif 1> /dev/null 2>&1; then
+            LAST=$(ls frames/*.gif | sed 's/[^0-9]//g' | sort -n | tail -1)
+            echo "num=$((LAST + 1))" >> $GITHUB_OUTPUT
+          else
+            echo "num=1" >> $GITHUB_OUTPUT
+
+      # Step 4: Download the GIF
+      - name: Download Global IR GIF
+        run: |
+          curl -L "https://vortex.plymouth.edu/~stmiller/stmiller_content/Graphics/global_IR_p168.GIF" \
+          -o frames/${{ steps.counter.outputs.num }}.gif
+
+      # Step 5: Create or update ZIP archive
+      - name: Create ZIP archive
+        run: zip -r archive.zip frames
+
+      # Step 6: Commit changes back to the repo
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add frames archive.zip
+          git commit -m "Add IR frame ${{ steps.counter.outputs.num }}" || echo "No changes"
+          git push
